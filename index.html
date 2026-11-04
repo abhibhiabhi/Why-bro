@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHY BRO?!</title>
+<style>
+  :root { --bg:#101018; --pink:#ff4f9a; --cyan:#55e7ff; --yellow:#ffe66d; }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; min-height:100vh; display:grid; place-items:center; overflow:hidden;
+    font-family:system-ui, sans-serif; color:#fff;
+    background:radial-gradient(circle at 50% 20%, #292044 0, #101018 58%);
+  }
+  .wrap { width:min(92vw,760px); text-align:center; padding:28px 16px 40px; }
+  h1 { margin:0; font-size:clamp(2.8rem,10vw,5.5rem); letter-spacing:-.07em; line-height:1; }
+  h1 span { color:var(--pink); text-shadow:0 0 24px #ff4f9a66; }
+  .tag { color:#c9c6d8; margin:14px 0 30px; font-size:1rem; }
+  .scene {
+    height:290px; position:relative; max-width:560px; margin:0 auto 24px;
+    border-bottom:8px solid #554a68; border-radius:10px;
+    background:linear-gradient(#191827 0 78%, #282238 78%);
+    overflow:hidden;
+  }
+  .door-frame {
+    position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    width:142px; height:224px; background:#090910; border:8px solid #8c6a54;
+    border-bottom:0; border-radius:8px 8px 0 0; perspective:700px;
+  }
+  .door {
+    position:absolute; inset:0; transform-origin:left center;
+    background:linear-gradient(110deg,#a66d4d,#70452f); border:3px solid #d29b70;
+    transition:transform .8s cubic-bezier(.2,.8,.2,1);
+    display:flex; align-items:center; justify-content:flex-end; padding-right:12px;
+  }
+  .door::before { content:""; position:absolute; inset:12px; border:2px solid #d29b70aa; }
+  .knob { width:10px; height:10px; border-radius:50%; background:var(--yellow); z-index:1; box-shadow:0 0 10px #ffe66d; }
+  .door.open { transform:rotateY(-105deg); }
+  .cat {
+    position:absolute; bottom:0; left:50%; transform:translate(-50%,110%);
+    font-size:88px; line-height:1; transition:transform .7s cubic-bezier(.2,.8,.2,1);
+    filter:drop-shadow(0 8px 5px #0008); z-index:2;
+  }
+  .cat.show { transform:translate(-50%,0); animation:peek 1.2s ease-in-out .7s 1; }
+  @keyframes peek { 0%,100%{translate:0 0} 40%{translate:0 -12px} 70%{translate:0 0} }
+  .gesture {
+    position:absolute; left:calc(50% + 42px); bottom:100px; z-index:3;
+    font-size:34px; opacity:0; transform:scale(.3) rotate(-20deg);
+    transition:all .25s ease .7s;
+  }
+  .gesture.show { opacity:1; transform:scale(1) rotate(0); }
+  .bubble {
+    position:absolute; left:50%; top:22px; transform:translateX(-50%) scale(.7);
+    opacity:0; background:white; color:#171321; border-radius:18px;
+    padding:10px 16px; font-weight:900; white-space:nowrap; z-index:4;
+    transition:all .25s ease .75s;
+  }
+  .bubble::after { content:""; position:absolute; left:50%; bottom:-9px; border:10px solid transparent; border-top-color:white; border-bottom:0; }
+  .bubble.show { opacity:1; transform:translateX(-50%) scale(1); }
+  button {
+    border:0; border-radius:16px; padding:17px 30px; cursor:pointer;
+    background:var(--pink); color:#190d19; font-weight:1000; font-size:1.25rem;
+    box-shadow:0 7px 0 #a72c65, 0 0 25px #ff4f9a55; transition:transform .12s, box-shadow .12s;
+  }
+  button:active { transform:translateY(5px); box-shadow:0 2px 0 #a72c65; }
+  button:disabled { opacity:.65; cursor:wait; }
+  .hint { color:#a9a4b8; font-size:.85rem; margin-top:17px; }
+  .floor-label { position:absolute; bottom:10px; width:100%; color:#9d8eac; font-size:.7rem; letter-spacing:.2em; }
+</style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>WHY <span>BRO?!</span></h1>
+    <p class="tag">You were warned. You pressed it anyway.</p>
+    <section class="scene" aria-label="A cartoon door and a cat">
+      <div class="bubble" id="bubble">WHY BRO?!</div>
+      <div class="door-frame"><div class="door" id="door"><div class="knob"></div></div></div>
+      <div class="cat" id="cat">🐈</div>
+      <div class="gesture" id="gesture">🖕</div>
+      <div class="floor-label">THE VERY IMPORTANT DOOR</div>
+    </section>
+    <button id="press">DON'T PRESS 🔔</button>
+    <p class="hint" id="hint">Seriously. Don't.</p>
+  </main>
+<script>
+const button = document.getElementById('press');
+const door = document.getElementById('door');
+const cat = document.getElementById('cat');
+const gesture = document.getElementById('gesture');
+const bubble = document.getElementById('bubble');
+const hint = document.getElementById('hint');
+let busy = false;
+
+function bell() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(520, ctx.currentTime + .22);
+    gain.gain.setValueAtTime(.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .35);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + .36);
+  } catch(e) {}
+}
+
+button.addEventListener('click', () => {
+  if (busy) return;
+  busy = true; button.disabled = true; bell();
+  hint.textContent = 'Oh no. You rang the bell.';
+  door.classList.add('open');
+  setTimeout(() => {
+    cat.classList.add('show');
+    bubble.classList.add('show');
+    gesture.classList.add('show');
+  }, 350);
+  setTimeout(() => {
+    bubble.classList.remove('show');
+    gesture.classList.remove('show');
+    cat.classList.remove('show');
+  }, 2600);
+  setTimeout(() => {
+    door.classList.remove('open');
+    hint.textContent = 'The cat has left. Your dignity has not.';
+    button.disabled = false; busy = false;
+  }, 3300);
+});
+</script>
+</body>
+</html>
