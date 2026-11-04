@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Abhi Runner</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(#8ed8ff,#e5f8ff 70%,#b7e58a 70%);font-family:system-ui,Arial;color:#18334b;overflow:hidden}.game{width:min(950px,96vw);padding:16px;border:4px solid #fff;border-radius:22px;background:#ffffffb8;box-shadow:0 12px 35px #28516a33;text-align:center}.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}h1{margin:2px 0;font-size:clamp(22px,5vw,34px)}.score{font-weight:800;font-size:20px;background:#fff;padding:8px 14px;border-radius:12px}canvas{display:block;width:100%;height:auto;margin:12px auto 8px;border:3px solid #fff;border-radius:14px;background:#bcecff;image-rendering:pixelated;touch-action:manipulation}.hint{margin:5px;font-size:14px}.controls{display:flex;justify-content:center;gap:10px;align-items:center;flex-wrap:wrap}button{border:0;border-radius:13px;padding:12px 22px;background:#ffb84d;color:#432600;font-weight:800;font-size:17px;box-shadow:0 4px 0 #d88a24}button:active{transform:translateY(3px);box-shadow:0 1px 0 #d88a24}.small{font-size:12px;opacity:.75}
+</style></head>
+<body><main class="game"><div class="top"><h1>🌈 Abhi Runner</h1><div class="score">SCORE: <span id="score">0</span> · BEST: <span id="best">0</span></div></div>
+<canvas id="game" width="900" height="360" aria-label="Abhi Runner game"></canvas>
+<div class="controls"><button id="start">Start game</button><button id="jump">JUMP ⬆</button></div>
+<p class="hint">Tap the game or press SPACE / ↑ to jump over the cactus. Don't let Abhi bump into it!</p><p class="small">A tiny colourful dinosaur-runner remake, with a pixel boy in a yellow shirt.</p></main>
+<script>
+const c=document.getElementById('game'),ctx=c.getContext('2d'),scoreEl=document.getElementById('score'),bestEl=document.getElementById('best');
+let running=false,over=false,frame=0,score=0,speed=5,obstacles=[],clouds=[],best=Number(localStorage.getItem('abhiRunnerBest')||0);bestEl.textContent=best;
+const boy={x:105,y:255,w:42,h:75,vy:0,ground:255};
+function pixel(x,y,w,h,col){ctx.fillStyle=col;ctx.fillRect(Math.round(x),Math.round(y),w,h)}
+function drawBoy(){let x=boy.x,y=boy.y; // pixel-art boy: dark fluffy hair, warm face, yellow tee, blue trousers
+ // hair silhouette
+ pixel(x+8,y,25,8,'#20202b');pixel(x+3,y+7,34,10,'#20202b');pixel(x+1,y+15,9,12,'#20202b');pixel(x+29,y+14,10,12,'#20202b');pixel(x+9,y+8,8,5,'#303044');pixel(x+21,y+5,8,6,'#303044');
+ // face and ears
+ pixel(x+8,y+15,27,24,'#c98255');pixel(x+4,y+22,5,9,'#c98255');pixel(x+34,y+22,5,9,'#c98255');pixel(x+13,y+25,4,4,'#29212a');pixel(x+27,y+25,4,4,'#29212a');pixel(x+19,y+33,7,3,'#87483c');
+ // neck + yellow shirt
+ pixel(x+17,y+38,12,7,'#bd7950');pixel(x+6,y+44,33,20,'#ffd34f');pixel(x+2,y+47,8,15,'#ffd34f');pixel(x+35,y+47,8,15,'#ffd34f');pixel(x+10,y+49,8,5,'#ffe27a');
+ // trousers and moving legs
+ pixel(x+9,y+63,12,10,'#315b9b');pixel(x+25,y+63,11,10,'#315b9b');let step=running&&!over?Math.floor(frame/6)%2:0;
+ pixel(x+9,y+70,9,5,'#263e68');pixel(x+25+(step?3:0),y+70-(step?3:0),10,5,'#263e68');pixel(x+5,y+74,14,4,'#3b2c2b');pixel(x+25+(step?3:0),y+74-(step?3:0),14,4,'#3b2c2b');}
+function drawCloud(x,y){pixel(x,y+9,54,15,'#fff');pixel(x+10,y,25,20,'#fff');pixel(x+30,y+4,18,16,'#fff')}
+function scenery(){ctx.clearRect(0,0,900,360);let sky=ctx.createLinearGradient(0,0,0,360);sky.addColorStop(0,'#8bd7ff');sky.addColorStop(.72,'#e8faff');sky.addColorStop(.721,'#b7e58a');sky.addColorStop(1,'#7bc45c');ctx.fillStyle=sky;ctx.fillRect(0,0,900,360);
+ clouds.forEach(a=>drawCloud(a.x,a.y));pixel(735,45,52,52,'#ffe47b');pixel(747,33,28,12,'#fff0a6');
+ // distant rounded hills
+ ctx.fillStyle='#a3d98a';ctx.beginPath();ctx.arc(160,280,100,Math.PI,0);ctx.arc(360,285,130,Math.PI,0);ctx.arc(700,280,115,Math.PI,0);ctx.fill();
+ pixel(0,330,900,30,'#6ab64d');pixel(0,330,900,4,'#478d43');for(let i=0;i<18;i++){let xx=(i*67-(frame*speed*.5)%67);pixel(xx,340,15,3,'#4c9a45');pixel(xx+28,350,8,3,'#4c9a45')}
+}
+function drawCactus(o){let x=o.x,y=330-o.h;pixel(x+10,y,15,o.h,'#248c55');pixel(x,y+20,12,9,'#248c55');pixel(x,y+12,7,20,'#248c55');pixel(x+25,y+34,10,8,'#248c55');pixel(x+29,y+25,7,18,'#248c55');pixel(x+13,y+8,3,4,'#65c978');}
+function draw(){scenery();obstacles.forEach(drawCactus);drawBoy();if(!running){ctx.fillStyle='#173b55';ctx.textAlign='center';ctx.font='bold 27px system-ui';ctx.fillText(over?'Game over!':'Ready, Abhi?',450,135);ctx.font='17px system-ui';ctx.fillText(over?'Press Start game to try again':'Press Start game, then jump!',450,165)}}
+function jump(){if(!running){if(!over)startGame();return}if(boy.y>=boy.ground-1)boy.vy=-14.5}
+function startGame(){running=true;over=false;frame=0;score=0;speed=5;obstacles=[];boy.y=boy.ground;boy.vy=0;scoreEl.textContent='0';if(!clouds.length)for(let i=0;i<5;i++)clouds.push({x:100+i*210,y:35+(i%3)*35});last=performance.now();requestAnimationFrame(loop)}
+let last=0;function loop(t){if(!running)return;let dt=Math.min((t-last)/16.67,2);last=t;frame+=dt;score+=dt*.12;speed=5+Math.min(score/90,4);scoreEl.textContent=Math.floor(score);
+ boy.vy+=.72*dt;boy.y+=boy.vy*dt;if(boy.y>boy.ground){boy.y=boy.ground;boy.vy=0}
+ clouds.forEach(a=>{a.x-=.5*dt;if(a.x< -70)a.x=950});
+ if(frame%Math.max(48,Math.floor(100-speed*5))<dt)obstacles.push({x:930,h:35+Math.random()*25});obstacles.forEach(o=>o.x-=speed*dt);obstacles=obstacles.filter(o=>o.x>-60);
+ for(const o of obstacles){if(boy.x+34>o.x+3&&boy.x+7<o.x+36&&boy.y+74>330-o.h+5){endGame();return}}
+ draw();requestAnimationFrame(loop)}
+function endGame(){running=false;over=true;let s=Math.floor(score);if(s>best){best=s;localStorage.setItem('abhiRunnerBest',best);bestEl.textContent=best}draw()}
+document.getElementById('start').addEventListener('click',startGame);document.getElementById('jump').addEventListener('click',jump);c.addEventListener('pointerdown',e=>{e.preventDefault();jump()});window.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp'){e.preventDefault();jump()} });draw();
+</script></body></html>
