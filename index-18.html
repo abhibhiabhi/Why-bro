@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#17152b">
+<title>Draw & Match</title>
+<style>
+:root{--bg:#111026;--panel:#1d1b39;--ink:#f7f5ff;--muted:#b9b5d3;--pink:#ff6fae;--cyan:#69e1e8;--line:#373354}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 15% 0%,#30265b 0,#17152d 42%,#10101f 100%);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);padding:22px 14px 40px}
+.wrap{width:min(760px,100%);margin:auto}
+header{text-align:center;margin:8px 0 22px}
+.logo{font-size:clamp(2rem,7vw,3.2rem);font-weight:900;letter-spacing:-2px;margin:0;background:linear-gradient(90deg,var(--pink),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);margin:5px 0 0}
+.card{background:rgba(29,27,57,.94);border:1px solid var(--line);border-radius:22px;padding:18px;margin:14px 0;box-shadow:0 15px 40px #0004}
+.center{text-align:center}
+button{border:0;border-radius:14px;padding:12px 18px;font-weight:800;font-size:1rem;cursor:pointer;color:#17152b;background:linear-gradient(135deg,var(--pink),#ffc1da);box-shadow:0 5px 0 #9e4770;transition:transform .12s,filter .12s}
+button:active{transform:translateY(3px);box-shadow:0 2px 0 #9e4770}
+button.secondary{background:#343151;color:var(--ink);box-shadow:0 4px 0 #201e39;border:1px solid #514b76}
+button.cyan{background:linear-gradient(135deg,var(--cyan),#b6fbef);box-shadow:0 5px 0 #398e91}
+button:disabled{opacity:.45;cursor:not-allowed}
+.hidden{display:none!important}
+h2{font-size:1.08rem;margin:0 0 12px}
+.small{font-size:.9rem;color:var(--muted)}
+.refbox{height:190px;display:grid;place-items:center;background:#fff;border-radius:16px;overflow:hidden}
+.refbox svg{width:175px;height:175px}
+.canvas-wrap{position:relative;background:#fff;border-radius:16px;overflow:hidden;border:3px solid #d8d5e8}
+canvas{display:block;width:100%;height:300px;touch-action:none;cursor:crosshair}
+.tools{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px}
+.tools button{font-size:.9rem;padding:10px 14px}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.score{font-size:4rem;font-weight:950;line-height:1.1;color:var(--cyan);margin:5px}
+.badge{display:inline-block;padding:6px 12px;border-radius:99px;background:#343151;color:#dcd8f4;font-size:.82rem;font-weight:700}
+.progress{height:8px;background:#353251;border-radius:99px;overflow:hidden;margin:14px 0}
+.progress>div{height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--cyan));transition:width .3s}
+footer{text-align:center;color:#8e89ad;font-size:.8rem;margin-top:20px}
+@media(max-width:480px){body{padding:12px 10px 28px}.card{padding:14px;border-radius:18px}.refbox{height:165px}canvas{height:260px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="logo">DRAW & MATCH ✏️</p>
+  <p class="sub">Endless drawing challenge • Look, draw & score!</p>
+</header>
+
+<section id="startScreen" class="card center">
+  <div style="font-size:3.5rem;margin:8px">🎨</div>
+  <h2 style="font-size:1.5rem">Ready to draw?</h2>
+  <p class="small">A new picture waits in every round. Try to match the black-and-white sample!</p>
+  <button id="startBtn">START GAME</button>
+</section>
+
+<section id="gameScreen" class="hidden">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h2>① Look at this picture</h2><span class="badge" id="roundBadge">Round 1</span>
+    </div>
+    <div class="refbox" id="reference"></div>
+    <p class="small center" id="promptText">Draw this picture in the canvas below.</p>
+  </div>
+  <div class="card">
+    <h2>② Your drawing</h2>
+    <div class="canvas-wrap"><canvas id="drawCanvas" aria-label="Drawing canvas"></canvas></div>
+    <div class="tools">
+      <button class="secondary" id="penBtn">✏️ Pen</button>
+      <button class="secondary" id="eraserBtn">🧽 Eraser</button>
+      <button class="secondary" id="clearBtn">↺ Clear</button>
+    </div>
+    <div class="row"><button class="cyan" id="checkBtn">OK — CHECK MY DRAWING</button></div>
+  </div>
+  <div class="progress"><div id="progressBar"></div></div>
+</section>
+
+<section id="resultScreen" class="card center hidden">
+  <div style="font-size:2.6rem">🏆</div>
+  <h2>Your score</h2>
+  <div class="score"><span id="scoreNum">0</span><span style="font-size:1.5rem">/100</span></div>
+  <p id="feedback" class="small">Nice try!</p>
+  <div class="row">
+    <button id="nextBtn">NEXT DRAWING ➜</button>
+    <button class="secondary" id="againBtn">START OVER</button>
+  </div>
+</section>
+<footer>Made for creative fun • Your drawings stay on this device<br><strong style="color:#ff9bc5;letter-spacing:.5px">Created with ❤️ by Abhi</strong></footer>
+</div>
+
+<script>
+const pictures = [
+ {name:"Flower", prompt:"Draw the flower: petals, centre and stem.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="100" cy="48" rx="19" ry="29"/><ellipse cx="100" cy="152" rx="19" ry="29"/><ellipse cx="52" cy="100" rx="29" ry="19"/><ellipse cx="148" cy="100" rx="29" ry="19"/><ellipse cx="66" cy="66" rx="19" ry="29" transform="rotate(-45 66 66)"/><ellipse cx="134" cy="66" rx="19" ry="29" transform="rotate(45 134 66)"/><ellipse cx="66" cy="134" rx="19" ry="29" transform="rotate(45 66 134)"/><ellipse cx="134" cy="134" rx="19" ry="29" transform="rotate(-45 134 134)"/><circle cx="100" cy="100" r="21"/><path d="M100 121 V185 M100 153 Q65 132 59 159 Q79 176 100 163 M100 165 Q126 137 143 155 Q133 178 100 177"/></g></svg>`},
+ {name:"House", prompt:"Draw the house: roof, walls, door and windows.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M25 91 L100 27 L175 91"/><path d="M42 84 V178 H158 V84"/><rect x="83" y="125" width="34" height="53"/><rect x="54" y="105" width="25" height="25"/><rect x="121" y="105" width="25" height="25"/><path d="M100 28 V12"/></g></svg>`},
+ {name:"Butterfly", prompt:"Draw the butterfly: four wings, body and antennae.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M94 91 Q48 18 25 49 Q4 83 79 105 Q14 123 34 164 Q60 187 96 119 Z"/><path d="M106 91 Q152 18 175 49 Q196 83 121 105 Q186 123 166 164 Q140 187 104 119 Z"/><path d="M100 71 Q86 36 69 35 M100 71 Q114 36 131 35"/><ellipse cx="100" cy="110" rx="9" ry="38"/><path d="M100 146 Q88 166 77 172 M100 146 Q112 166 123 172"/></g></svg>`},
+ {name:"Fish", prompt:"Draw the fish: body, tail, eye and fins.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M35 100 Q85 35 145 100 Q85 165 35 100 Z"/><path d="M143 100 L183 65 V135 Z"/><path d="M82 54 Q95 20 119 52 M82 146 Q95 180 119 148"/><circle cx="65" cy="91" r="5" fill="black"/><path d="M40 111 Q52 120 63 112"/></g></svg>`},
+ {name:"Umbrella", prompt:"Draw the umbrella: curved canopy and handle.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M22 98 Q100 5 178 98 Q158 85 139 98 Q120 84 100 98 Q80 84 61 98 Q42 85 22 98 Z"/><path d="M100 98 V160 Q100 185 125 174 Q133 170 132 160"/><path d="M61 98 L61 108 M139 98 L139 108"/></g></svg>`},
+ {name:"Car", prompt:"Draw the car: body, windows and two wheels.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M25 119 L39 85 Q44 72 60 72 H131 Q145 72 155 91 L174 119 V151 H25 Z"/><path d="M55 75 L68 48 H121 L143 75 Z"/><path d="M101 50 V75"/><circle cx="61" cy="151" r="17"/><circle cx="143" cy="151" r="17"/></g></svg>`},
+ {name:"Tree", prompt:"Draw the tree: leafy top and trunk.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M82 118 V183 H119 V118"/><path d="M100 18 Q77 5 63 31 Q30 27 31 62 Q7 86 39 107 Q39 139 72 133 Q91 151 108 133 Q145 146 157 116 Q190 99 168 72 Q181 37 145 31 Q126 4 100 18 Z"/></g></svg>`},
+ {name:"Cup", prompt:"Draw the cup: top, body and handle.", svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><g fill="white" stroke="black" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M35 65 H145 L135 169 H48 Z"/><path d="M145 83 H159 Q187 83 177 118 Q172 139 140 136"/><path d="M30 65 Q90 51 150 65 Q90 79 30 65 Z"/><path d="M53 183 H137"/></g></svg>`}
+];
+
+const startScreen=document.getElementById('startScreen'), gameScreen=document.getElementById('gameScreen'), resultScreen=document.getElementById('resultScreen');
+const canvas=document.getElementById('drawCanvas'), ctx=canvas.getContext('2d');
+let roundCount=0, drawing=false, erasing=false, lastX=0,lastY=0, current=null, hasDrawn=false;
+
+function pickRandomPicture(){
+  // Pick from the full picture set every round. Repeats are allowed,
+  // so the game can continue without a final level.
+  return pictures[Math.floor(Math.random()*pictures.length)];
+}
+function resizeCanvas(){
+ const rect=canvas.getBoundingClientRect(), dpr=Math.max(1,window.devicePixelRatio||1);
+ const old=document.createElement('canvas'); old.width=canvas.width;old.height=canvas.height;
+ if(old.width&&old.height) old.getContext('2d').drawImage(canvas,0,0);
+ canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=5;ctx.strokeStyle='#111';
+ ctx.fillStyle='#fff';ctx.fillRect(0,0,rect.width,rect.height);
+ if(old.width&&old.height)ctx.drawImage(old,0,0,old.width,old.height,0,0,rect.width,rect.height);
+}
+function clearCanvas(){const r=canvas.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.fillStyle='#fff';ctx.fillRect(0,0,r.width,r.height);hasDrawn=false;}
+function beginGame(){roundCount=1;startScreen.classList.add('hidden');resultScreen.classList.add('hidden');gameScreen.classList.remove('hidden');showRound();}
+function showRound(){
+ current=pickRandomPicture();document.getElementById('reference').innerHTML=current.svg;
+ document.getElementById('promptText').textContent=current.prompt;
+ document.getElementById('roundBadge').textContent=`Round ${roundCount} • Endless mode`;
+ document.getElementById('progressBar').style.width='100%';
+ resizeCanvas();clearCanvas();erasing=false;setToolButtons();
+}
+function setToolButtons(){document.getElementById('penBtn').style.outline=erasing?'none':'2px solid #69e1e8';document.getElementById('eraserBtn').style.outline=erasing?'2px solid #69e1e8':'none';}
+function pos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);drawing=true;const p=pos(e);lastX=p.x;lastY=p.y;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.strokeStyle=erasing?'#fff':'#111';ctx.lineWidth=erasing?22:5;ctx.lineTo(p.x+.1,p.y+.1);ctx.stroke();hasDrawn=true;});
+canvas.addEventListener('pointermove',e=>{if(!drawing)return;e.preventDefault();const p=pos(e);ctx.beginPath();ctx.moveTo(lastX,lastY);ctx.lineTo(p.x,p.y);ctx.strokeStyle=erasing?'#fff':'#111';ctx.lineWidth=erasing?22:5;ctx.stroke();lastX=p.x;lastY=p.y;});
+function stopDraw(){drawing=false;}canvas.addEventListener('pointerup',stopDraw);canvas.addEventListener('pointercancel',stopDraw);
+document.getElementById('penBtn').onclick=()=>{erasing=false;setToolButtons()};
+document.getElementById('eraserBtn').onclick=()=>{erasing=true;setToolButtons()};
+document.getElementById('clearBtn').onclick=clearCanvas;
+
+function scoreDrawing(){
+ const target=document.createElement('canvas'), user=document.createElement('canvas'), size=160;
+ target.width=user.width=size;target.height=user.height=size;
+ const t=target.getContext('2d'),u=user.getContext('2d');
+ t.fillStyle=u.fillStyle='#fff';t.fillRect(0,0,size,size);u.fillRect(0,0,size,size);
+ const img=new Image();const svgBlob=new Blob([current.svg],{type:'image/svg+xml'});const url=URL.createObjectURL(svgBlob);
+ return new Promise(resolve=>{
+  img.onload=()=>{
+   const scale=Math.min(118/img.width,118/img.height),w=img.width*scale,h=img.height*scale;
+   t.drawImage(img,(size-w)/2,(size-h)/2,w,h);URL.revokeObjectURL(url);
+   u.drawImage(canvas,0,0,canvas.width,canvas.height,0,0,size,size);
+   const td=t.getImageData(0,0,size,size).data,ud=u.getImageData(0,0,size,size).data;
+   const grid=32, a=[],b=[];
+   for(let gy=0;gy<grid;gy++)for(let gx=0;gx<grid;gx++){
+    let ta=0,ua=0;
+    for(let y=Math.floor(gy*size/grid);y<Math.ceil((gy+1)*size/grid);y++)for(let x=Math.floor(gx*size/grid);x<Math.ceil((gx+1)*size/grid);x++){
+      let p=(y*size+x)*4;
+      if(td[p]<110)ta++;if(ud[p]<110)ua++;
+    }
+    a.push(ta>1);b.push(ua>1);
+   }
+   const countA=a.filter(Boolean).length,countB=b.filter(Boolean).length;
+   if(countB<3){resolve(0);return;}
+   function matched(src,dst){let n=0;for(let y=0;y<grid;y++)for(let x=0;x<grid;x++){let i=y*grid+x;if(!src[i])continue;let found=false;for(let dy=-1;dy<=1&&!found;dy++)for(let dx=-1;dx<=1;dx++){let xx=x+dx,yy=y+dy;if(xx>=0&&xx<grid&&yy>=0&&yy<grid&&dst[yy*grid+xx]){found=true;break;}}if(found)n++;}return n;}
+   const recall=matched(a,b)/Math.max(1,countA),precision=matched(b,a)/Math.max(1,countB);
+   let f1=(precision+recall)>0?2*precision*recall/(precision+recall):0;
+   // A modest shape score; generous enough for hand-drawn approximations.
+   resolve(Math.max(0,Math.min(100,Math.round(f1*100))));
+  };
+  img.onerror=()=>{URL.revokeObjectURL(url);resolve(0)};img.src=url;
+ });
+}
+document.getElementById('checkBtn').onclick=async()=>{
+ const btn=document.getElementById('checkBtn');btn.disabled=true;btn.textContent='CHECKING...';
+ const score=await scoreDrawing();document.getElementById('scoreNum').textContent=score;
+ document.getElementById('feedback').textContent=score>=80?'Amazing match! You are a drawing star! 🌟':score>=55?'Good job! Your drawing is getting close. 👏':score>=25?'Nice try! Look closely and keep practising. 💪':'Good start! Try drawing the main outline and details.';
+ gameScreen.classList.add('hidden');resultScreen.classList.remove('hidden');btn.disabled=false;btn.textContent='OK — CHECK MY DRAWING';
+};
+document.getElementById('nextBtn').onclick=()=>{
+ roundCount++;
+ resultScreen.classList.add('hidden');gameScreen.classList.remove('hidden');showRound();
+};
+document.getElementById('againBtn').onclick=()=>{resultScreen.classList.add('hidden');gameScreen.classList.add('hidden');startScreen.classList.remove('hidden');};
+document.getElementById('startBtn').onclick=beginGame;
+window.addEventListener('resize',()=>{if(!gameScreen.classList.contains('hidden')){resizeCanvas();}});
+</script>
+</body>
+</html>
